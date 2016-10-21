@@ -13,8 +13,6 @@ def bank_application():
         print "You Entered a wrong option"
         bank_application()
 
-#dict_acc = OrderedDict()
-
 def New_BankAcc():
     dict_acc = {}
    # print "Enter yourinformation to create a account"
@@ -22,17 +20,11 @@ def New_BankAcc():
     Name = raw_input("Name\n> ")
     Address = raw_input("Address\n>")
     Phone = raw_input("Phone Number\n> ")
-    Balance = raw_input("Balance\n>")
+    Balance = int(raw_input("Balance\n>"))
     dict_acc[Acc_no] = {"Name":Name,"Address":Address,"Phone":Phone,"Balance":Balance}
     with open("customer_db.txt","a+") as f:
         f.write(str(dict_acc)+"\n")       
     
-
-#with open("customer_db.txt","a+") as f:
-#        json.dump(dict_acc,f)
-#        customer_services()
-#    f.close()
-        
 def ExistingAcc():
     try:
         option = int(raw_input("\nTo Check balance enter 1" + "\n" + "To withdraw cash enter 2" + "\n" + "To deposit Cash into you account enter 3 " + "\n" + ">>")) 
@@ -56,35 +48,40 @@ def check_balance():
     with open('customer_db.txt','r') as f:
         for line in f:
             if pattern.search(line)!= None:
-                dict_i = ast.literal_eval(line)
-                print "{0}, your Account Balance by {1} is {2}".format(dict_i[acc_num]['Name'],date,dict_i[acc_num]['Balance'])
+                line = line[line.find('Balance'):].split(' ')
+                print line
+                 #print "{0}, your Account Balance by {1} is {2}".format(dict_i[acc_num]['Name'],date,dict_i[acc_num]['Balance'])
                 
-
-#def update_val():
-#    with open('customer_db.txt','r') as f:
-        
 def withdraw():
     acc_num = raw_input("Enter account number: ")
-    amt = float(raw_input("Please enter amount to Withdraw:" + "\n" + ">>"))
-    pattern = re.compile(acc_num)
-    with open('customer_db.txt','r') as f:
-        for line in f:
-            if pattern.search(line)!= None:
-                dict_i = ast.literal_eval(line)
-                bal = int(dict_i[acc_num]['Balance']) - amt
-                print ("Your new account balance is {0}".format(bal) + "\n")
-                                 
-def deposit_cash():
-    acc_num = raw_input("Enter account number: ")
-    amt = float(raw_input("Please enter amount to Deposit:" + "\n" + ">>"))
+    amt = int(raw_input("Please enter amount to Withdraw:" + "\n" + ">>"))
     pattern = re.compile(acc_num)
     with open('customer_db.txt','r+') as f:
         for line in f:
             if pattern.search(line)!= None:
-                dict_i = ast.literal_eval(line)
-                act_amt = int(dict_i[acc_num]['Balance'])
-                deposit = act_amt + amt               
-                print ("Your new credited balance is {0}".format(deposit) + "\n")
+                line = line[line.find('Balance'):].split(',')
+                res = int(line[0][-4:])
+                res_1 = res - amt
+                line = str(line[0][-4:])
+                f.seek(39,0)
+                f.write(line.replace(str(res),str(res_1)))
+                print ("Your new account balance is {0}".format(res_1) + "\n")
+                
+                                 
+def deposit_cash():
+    acc_num = raw_input("Enter account number: ")
+    amt = int(raw_input("Please enter amount to Deposit:" + "\n" + ">>"))
+    pattern = re.compile(acc_num)
+    with open('customer_db.txt','r+') as f:       
+        for line in f:
+            if pattern.search(line)!= None:
+                line = line[line.find('Balance'):].split(',')
+                res = int(line[0][-4:])
+                res_1 = res + amt
+                line = str(line[0][-4:])
+                f.seek(39,0)
+                f.write(line.replace(str(res),str(res_1)))
+                print ("Your new credited balance is {0}".format(res_1) + "\n")
                     
 def delete_acc():
     acc_num = raw_input("To delete your account enter your account number:" + "\n" + ">>")
@@ -94,16 +91,14 @@ def delete_acc():
             if pattern.search(line)!= None:
                 dict_i = ast.literal_eval(line)
                 dict_i.clear()
-                print dict_i
+                print dict_i                
 
-
-def main():
-                
+def main():               
  #   bank_application()
  #   ExistingAcc()
  #   check_balance()
- #   withdraw()
- #   deposit_cash()
+#     withdraw()
+     deposit_cash()
  #   delete_acc()
 main()
 
