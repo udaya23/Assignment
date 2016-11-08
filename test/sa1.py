@@ -1,3 +1,4 @@
+
 #1.
 import collections
 def count_l(inp):
@@ -50,9 +51,12 @@ def max_in_list():
     print temp
         
         
-#using reduce
+#using reduce method to find max from the list
+def max_in_list1():
+    list_l = [2,43,65,7,9]
+    print reduce(lambda x,y: max(x,y), list_l)
    
-max_in_list()
+max_in_list1()
 
 
 
