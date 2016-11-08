@@ -10,7 +10,7 @@ class Connection_db:
 #everytime a instance is created for this class, the two fucntions to read the credentails of DB and connecting to the DB will be executed and return the connection object
      def __init__(self):
           self.update_from_config()
-          self.conn,self.cursor = self.connect(1,200)
+          self.conn,self.cursor = self.connect(1,0.2)
 
           
      def log_file(self):
@@ -65,7 +65,7 @@ class Connection_db:
                self.cursor.execute(query)
                self.logger.info("Executing SELECT statement (%s)" %query)
                for row in self.cursor.fetchall():
-                    for i in range(0,len(row)-5):
+                    for i in range(0,len(row)-9):
                          print row[i]
           except MySQLdb.error,e:
                self.logger.error("Error in Selection query %d: %s" % (e.args[0], e.args[1]))
@@ -110,8 +110,8 @@ class Connection_db:
               
 
 c = Connection_db()
-#c.select(c.connect,c.log_file,name="Northwind.employees",dict_d = {'EmployeeID':[3,7],'City':"Seattle"})
-c.insert(c.connect,c.log_file,name = "Northwind.employees",dict_d = {'EmployeeID' :14,'FirstName' : "Zuie", 'LastName' : "Andrew"})
+c.select(c.connect,c.log_file,name="Northwind.employees",dict_d = {'EmployeeID':[3,7],'City':"Seattle"})
+#c.insert(c.connect,c.log_file,name = "Northwind.employees",dict_d = {'EmployeeID' :14,'FirstName' : "Zuie", 'LastName' : "Andrew"})
 #c.update(c.connect,c.log_file,name="Northwind.employees",dict_d = {"EmployeeID":'13','FirstName':"lucy",'LastName':"Mandy",'Title':"CA"})
 #c.close_connection(c.connect)              
 
