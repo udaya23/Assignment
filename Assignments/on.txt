@@ -1,0 +1,5 @@
+this is a palindrome sentence checker program
+acaca,
+radar
+text file with words
+rulur sees
