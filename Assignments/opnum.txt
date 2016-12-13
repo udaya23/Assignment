@@ -1,0 +1,1 @@
+1 this is a palindrome sentence checker program2 acaca,3 radar4 text file with words5 rulur sees6 

@@ -110,7 +110,7 @@ class Connection_db:
               
 
 c = Connection_db()
-c.select(c.connect,c.log_file,name="Northwind.employees",dict_d = {'EmployeeID':[3,7],'City':"Seattle"})
+#c.select(c.connect,c.log_file,name="Northwind.employees",dict_d = {'EmployeeID':[3,7],'City':"Seattle"})
 #c.insert(c.connect,c.log_file,name = "Northwind.employees",dict_d = {'EmployeeID' :14,'FirstName' : "Zuie", 'LastName' : "Andrew"})
 #c.update(c.connect,c.log_file,name="Northwind.employees",dict_d = {"EmployeeID":'13','FirstName':"lucy",'LastName':"Mandy",'Title':"CA"})
 #c.close_connection(c.connect)              

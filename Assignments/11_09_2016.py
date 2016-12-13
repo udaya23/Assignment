@@ -1,3 +1,7 @@
+import re
+import string
+
+
 """Write a program that maps a list of words into a list of integers representing the lengths of the correponding words. Write it in three different ways:
 1) using a for-loop, 2) using the higher order function map(), and 3) using list comprehensions. """
 
@@ -46,13 +50,12 @@ def list_comp():
 and prints the line to the screen if it is a palindrome."""
 
 def palindrome(filep):
-    file_p = open(filep)
+    file_p = open(filep,"r")
     for line in file_p:
-        line_l = line.rstrip()
+        line_l = line.strip(',')
         if line_l == line_l[::-1]:
             print line_l
-        else:
-            pass
+
 
 filep = raw_input("enter a filename: ")
 palindrome(filep)
