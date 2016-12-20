@@ -11,11 +11,11 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 D42_USERNAME = 'admin'
 D42_PASSWORD = 'adm!nd42'
-D42_URL = "https://192.168.0.22/api/1.0/"
+D42_URL = "https://192.168.0.23/api/1.0/"
 data_s =[]
 
 def read_from_xlsx():
-    xl_workbook = xlrd.open_workbook("deviceHard.xlsx")
+    xl_workbook = xlrd.open_workbook("small_d42data.xlsx")
 
     xl_sheet = xl_workbook.sheet_by_index(0)
     first_row = []
@@ -40,7 +40,7 @@ def post_data(D42_URL,D42_USERNAME,D42_PASSWORD,data_s):
     auth=(D42_USERNAME,D42_PASSWORD)
 #    import pdb
 #    pdb.set_trace()
-    for i in range(5,15):
+    for i in range(2,5):
         data = dict(data_s[i])
 #        print json.dumps(data)
         resp = requests.post(theurl,auth= auth,verify = False,data = data)
