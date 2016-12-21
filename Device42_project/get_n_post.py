@@ -11,6 +11,7 @@ from datetime import datetime
 from time import strftime
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from ConfigParser import SafeConfigParser
+import ast
 from ast import literal_eval
 import warnings
 import pdb
@@ -61,10 +62,8 @@ class Device_d42:
             self.device_id = config.get('config_values', 'device_id')
             self.auth = (self.username, self.password)
             self.get_api = "rooms/"
-            print type(self.hw_params)
         except IOError, error:
-            sys.exit(error)
-            print "error"
+            logging.error("error has ocurred in reading values from config file")
 
  
     def get_and_delete(self, method, theurl):
@@ -100,27 +99,14 @@ class Device_d42:
         self.logger.info('Getting data from %s' %theurl)
         print result.encode('utf8')
  
-        
-    def post_room(self, url, room_params):
-        """
-        building name and room name is required
-        """
-        room_params = eval(room_params)
-        if room_params.has_key('building') != True:
-            self.logger.info('Building info not available for device')
-        if room_params.has_key('name') != True:
-            self.logger.info('Room info not available for device')
-        else:
-            theurl = url + "rooms/"
-            result = self.post_data_func(theurl, room_params)
-            print result
-
     def check_if_exists(self, theurl, api_key):
         result = self.get_and_delete("get", theurl)
         res = ast.literal_eval(result)
+        api_key = api_key[:-1]
+        print api_key
         result = res[api_key]
-        roomnames = [i['name'] for i in result if 'name' in i]
-        return roomnames
+        names = [i['name'] for i in result if 'name' in i]
+        return names
 
     def post_building(self, url, building_params):
         """
@@ -133,13 +119,35 @@ class Device_d42:
             theurl = url + "buildings/"
             result = self.post_data_func(theurl, building_params)
             print result
+           
+    def post_room(self, url, room_params):
+        """
+        building name and room name is required
+        """
+        api_key = "buildings/"
+        theurl = url + api_key
+        buildingnames = self.check_if_exists(theurl, api_key)
+        for building in buildingnames:
+            if building in room_params:
+                self.logger.info('Room info exists for device')
+            else:
+                pass
+        room_params = eval(room_params)
+        if room_params.has_key('building') != True:
+            self.logger.info('Building info not available for device')
+        if room_params.has_key('name') != True:
+            self.logger.info('Room info not available for device')
+        else:
+            theurl = url + "rooms/"
+            result = self.post_data_func(theurl, room_params)
+            logging.info("Room has been created into the building given",result)
+
 
     def post_racks(self, url, rack_params):
         """
         rack name, size (u size), and room name are all required
         check if room doesnt exist re-direct to add room function
         """
-        rack_params = eval(rack_params)
         api_key = "rooms/"
         theurl = url + api_key
         roomnames = self.check_if_exists(theurl, api_key)
@@ -148,13 +156,16 @@ class Device_d42:
                 self.logger.info('Room info exists for device')
             else:
                 pass
-        url = D42_URL + "racks/"
-        result = self.connec_post(url,rack_params)
-        print result
+        rack_params = eval(rack_params)
+        if rack_params.has_key('name') != True:
+            self.logger.info('Rack name not provided')
+        if rack_params.has_key('size') != True:
+            self.logger.info('Rack size info not available for device')
+        else:
+            url = D42_URL + "racks/"
+            result = self.connec_post(url,rack_params)
+            logging.info("Rack has been created into the Room",result)
                 
-#        res = result.encode('utf8')            
-
-
     def post_hwmodel(self, url, hw_params):
         """
         Name = hardware model name is required.
@@ -191,15 +202,14 @@ class Device_d42:
             theurl = url + "device/rack/"
             result = self.post_data_func(theurl, device_to_rack)
         self.logger.info("Device is posted to Device42",json.dumps(result))
-        print result
  
     def delete_data(self, url, device_id):       
         theurl = url +"devices/" + str(self.device_id)
         try:
             result = self.get_and_delete("delete", theurl)
-            print result
+            self.logger.info("Device is Deleted from Device42",json.dumps(result))
         except requests.HTTPError:
-            print ("Device id not found")
+            self.logger.error("Device is not Deleted from Device42")
 
     def update_device(self, url, update_params):
         """
@@ -209,12 +219,10 @@ class Device_d42:
         theurl = url + "devices/"
         try:
             resp = requests.put(theurl, auth = self.auth, data=update_params, verify=False)
-            print resp.raise_for_status()
-            print json.loads(resp.content)
-            self.logger.info('Device info has been updated')
+            self.logger.info(resp.raise_for_status())
+            self.logger.info('Device info has been updated',json.loads(resp.content))
         except requests.HTTPError:
             self.logger.warning('Device id not found')
-            print ("Device id not found")
 
     def read_from_xlsx(self):
         xl_workbook = xlrd.open_workbook("deviceHard.xlsx")
@@ -249,8 +257,8 @@ c = Device_d42()
 #c.delete_data(c.url, c.device_id)
 #c.update_device(c.url, c.auth, c.update_params)
 #c.post_building(c.url, c.building_params)
-#c.post_room(c.url, c.room_params)
+c.post_room(c.url, c.room_params)
 #c.post_hwmodel(c.url, c.hw_params)
 #c.post_multipledata(c.url)
-c.post_device_2_rack(c.url, c.device_to_rack)       
+#c.post_device_2_rack(c.url, c.device_to_rack)       
 
