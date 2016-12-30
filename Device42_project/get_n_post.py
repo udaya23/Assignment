@@ -40,12 +40,6 @@ class Device_d42:
         self.logger = self.log_file()
         self.logger.info("Reading all the credentials to connect to the database.....")
         filepath = sys.argv[1] 
-        if os.path.isfile(filepath) and os.access(filepath, os.R_OK):
-            self.logger.info('File exists and is readable')
-            print "yes"
-        else:
-            self.logger.warning('Either file is missing or is not readable')
-            print "no"
         try:
             config = SafeConfigParser()
             config.read(filepath)
@@ -65,20 +59,17 @@ class Device_d42:
         except IOError, error:
             logging.error("error has ocurred in reading values from config file")
 
- 
     def get_and_delete(self, method, theurl):
         """
         pass GET,DELETE as method and connection to api is made
         """
-        method = method.upper()
-        if method not in ('GET','DELETE'):
-            self.logger.info('UserWarning Unsupported HTTP request.')
+        method = str(method.upper())
         try:
             resp = requests.request(method, theurl, auth = self.auth, verify = False)
+            self.logger.info('request executed')
         except requests.RequestException:
             self.logger.error('Exception has occured')
-        else:
-            return resp.text
+        return resp.text
 
     def post_data_func(self, theurl, data):
         method = "post"
@@ -96,6 +87,7 @@ class Device_d42:
         theurl = url + get_api
         method = "get"
         result = self.get_and_delete(method, theurl)
+        print "Getting data from"
         self.logger.info('Getting data from %s' %theurl)
         print result.encode('utf8')
  
@@ -225,28 +217,30 @@ class Device_d42:
             self.logger.warning('Device id not found')
 
     def read_from_xlsx(self):
-        xl_workbook = xlrd.open_workbook("deviceHard.xlsx")
-        xl_sheet = xl_workbook.sheet_by_index(0)
-        if xl_sheet is None:
-            self.logger.warning("xl_sheet is None")           
-        first_row = []
-        for col in range(xl_sheet.ncols):
-            first_row.append( xl_sheet.cell_value(0,col) )
-        data_s =[]
-        for row in range(1, xl_sheet.nrows):
-            elm = collections.OrderedDict()
-            for col in range(xl_sheet.ncols):
-                elm[first_row[col]]=xl_sheet.cell_value(row,col)
-            data_s.append(elm)       
-        return data_s
+    xl_workbook = xlrd.open_workbook("csv_devices.xlsx")
+    sheet = xl_workbook.sheet_by_index(0)
+    keys = [str(sheet.cell(0, col_index).value) for col_index in xrange(sheet.ncols)]
+    if ' ' in keys:
+        print "it has empty headers"
+    else:
+        keys_s = map(str.lower,keys)
+        dict_list = []
+        num_rows = sheet.nrows-1
+        for row_index in xrange(1, sheet.nrows):
+            d = {keys_s[col_index]: str(sheet.cell(row_index, col_index).value) 
+                 for col_index in xrange(sheet.ncols)}
+            dict_list.append(d)
+        return dict_list,num_rows
 
     def post_multipledata(self, url):
-        theurl = url + "devices/"
-        data_s = self.read_from_xlsx()
-        for i in range(2,13):
+        theurl = url + "device/"
+        headers = {'Content-type': 'application/x-www-form-urlencoded',\
+    			'Authorization' : 'Basic '+ base64.b64encode(self.username + ':' + self.password)}
+        data_s = []
+        data_s,num_rows = self.read_from_xlsx()
+        for i in range(0,num_rows):
             data = dict(data_s[i])
-            print data
-            resp = requests.post(theurl, auth= self.auth, verify = False, data = data)
+            resp = requests.post(theurl, verify = False, data = data, headers = headers)
         print resp.text
         print resp.raise_for_status()
 
@@ -257,8 +251,8 @@ c = Device_d42()
 #c.delete_data(c.url, c.device_id)
 #c.update_device(c.url, c.auth, c.update_params)
 #c.post_building(c.url, c.building_params)
-c.post_room(c.url, c.room_params)
+#c.post_room(c.url, c.room_params)
 #c.post_hwmodel(c.url, c.hw_params)
-#c.post_multipledata(c.url)
+c.post_multipledata(c.url)
 #c.post_device_2_rack(c.url, c.device_to_rack)       
 
