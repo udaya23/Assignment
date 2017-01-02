@@ -46,6 +46,9 @@ class Device_d42:
             self.username = config.get('config_param', 'D42_USERNAME')
             self.password = config.get('config_param', 'D42_PASSWORD')
             self.url = config.get('config_param', 'D42_URL')
+             """
+            Read values from config file
+            """
             self.update_params = config.get('config_values', 'update_params')
             self.building_params = config.get('config_values', 'building_params')
             self.device_to_rack = config.get('config_values', 'device_to_rack')
@@ -61,35 +64,35 @@ class Device_d42:
 
     def get_and_delete(self, method, theurl):
         """
-        pass GET,DELETE as method and connection to api is made
+        GET,DELETE requests
         """
         method = str(method.upper())
-        try:
+        if method == "GET":
             resp = requests.request(method, theurl, auth = self.auth, verify = False)
-            self.logger.info('request executed')
-        except requests.RequestException:
-            self.logger.error('Exception has occured')
-        return resp.text
+            self.logger.info('GET Request executed')
+            return resp.text
+        elif method == "DELETE":
+            resp = requests.request(method, theurl, auth = self.auth, verify = False)
+            self.logger.info('DELETE Request executed')
+        else:
+            self.logger.Warning('Request could not be executed')
+           
 
     def post_data_func(self, theurl, data):
         method = "post"
         method = method.upper()
-        if method not in ('GET','POST'):
-            self.logger.info('UserWarning Unsupported HTTP request.')
-        try:
+        if method == "POST":
             resp = requests.request(method, theurl, auth = self.auth, data = data, verify = False)
         except requests.RequestException:
             self.logger.error('Exception has occured')
-        else:
-            return resp.text
+        return resp.text
 
     def get_data(self, url, get_api):       
         theurl = url + get_api
         method = "get"
         result = self.get_and_delete(method, theurl)
-        print "Getting data from"
         self.logger.info('Getting data from %s' %theurl)
-        print result.encode('utf8')
+#        print result.encode('utf8')
  
     def check_if_exists(self, theurl, api_key):
         result = self.get_and_delete("get", theurl)
@@ -110,6 +113,7 @@ class Device_d42:
         else:            
             theurl = url + "buildings/"
             result = self.post_data_func(theurl, building_params)
+            self.logger.info('Posted Building data')
             print result
            
     def post_room(self, url, room_params):
@@ -155,7 +159,7 @@ class Device_d42:
             self.logger.info('Rack size info not available for device')
         else:
             url = D42_URL + "racks/"
-            result = self.connec_post(url,rack_params)
+            result = self.post_data_func(url,rack_params)
             logging.info("Rack has been created into the Room",result)
                 
     def post_hwmodel(self, url, hw_params):
@@ -216,19 +220,33 @@ class Device_d42:
         except requests.HTTPError:
             self.logger.warning('Device id not found')
 
+
+    def read_column_names(self,keys):
+        """
+        read column headers and check if there is any empty headers
+        """
+        for i in range(0,len(keys)): 
+            if '' in keys:
+                self.logger.warning("it has empty header fields")
+                sys.exit(1)
+            else:
+                keys_s = map(str.lower,keys)
+                return keys_s
+        return True
+
+
     def read_from_xlsx(self):
-    xl_workbook = xlrd.open_workbook("csv_devices.xlsx")
-    sheet = xl_workbook.sheet_by_index(0)
-    keys = [str(sheet.cell(0, col_index).value) for col_index in xrange(sheet.ncols)]
-    if ' ' in keys:
-        print "it has empty headers"
-    else:
-        keys_s = map(str.lower,keys)
+        xl_workbook = xlrd.open_workbook("csv_devices.xlsx")
+        sheet = xl_workbook.sheet_by_index(0)
+        keys = [str(sheet.cell(0, col_index).value) for col_index in xrange(sheet.ncols)]
+        keys_s = self.read_column_names(keys)
+        if not self.read_column_names(keys):
+            return False
         dict_list = []
         num_rows = sheet.nrows-1
         for row_index in xrange(1, sheet.nrows):
             d = {keys_s[col_index]: str(sheet.cell(row_index, col_index).value) 
-                 for col_index in xrange(sheet.ncols)}
+                for col_index in xrange(sheet.ncols)}
             dict_list.append(d)
         return dict_list,num_rows
 
@@ -253,6 +271,6 @@ c = Device_d42()
 #c.post_building(c.url, c.building_params)
 #c.post_room(c.url, c.room_params)
 #c.post_hwmodel(c.url, c.hw_params)
-c.post_multipledata(c.url)
+#c.post_multipledata(c.url)
 #c.post_device_2_rack(c.url, c.device_to_rack)       
 
