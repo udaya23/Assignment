@@ -29,14 +29,21 @@ class ClientTestCase(unittest.TestCase):
         url = 'https://192.168.0.29/api/1.0/'
         get_api = "rooms/"
         response_dict = self.client.get_data(url=url,get_api=get_api)
-        print response_dict
-
-        # Check that our function made the expected internal calls
-#        mock_get.assert_called_once_with(url=url)
-#        self.assertEqual(1, mock_response)
 
         # If we want, we can check the contents of the response
         self.assertEqual(response_dict, expected_status)
+    def test_send_email(self):
+        # Mock 'smtplib.SMTP' class
+        with patch("smtplib.SMTP") as mock_smtp:
+            # Build test message
+            sender = 'udaya.python23@gmail.com'
+            receivers = ['udaya.ackula@gmail.com']
+            
+            self.client.build_message()
+            # Get instance of mocked SMTP object
+            instance = mock_smtp.return_value
+            self.assertEqual(instance.sendmail.call_count, 1)
+    
 
 if __name__ == "__main__":
     unittest.main()

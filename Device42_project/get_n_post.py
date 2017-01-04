@@ -227,13 +227,33 @@ class Device_d42:
         """
         for i in range(0,len(keys)): 
             if '' in keys:
-                self.logger.warning("it has empty header fields")
+                self.build_message()
                 sys.exit(1)
             else:
                 keys_s = map(str.lower,keys)
                 return keys_s
         return True
+    
+    def build_message(self):
+        msg = """File has empty headers
+        """
+        msgd = MIMEText(msg)
+        self.send_message(msgd)
 
+    def send_message(self, msgd):
+        try:
+            sender = 'udaya.python23@gmail.com'
+            receivers = ['udaya.ackula@gmail.com']
+            s = smtplib.SMTP(host='smtp.gmail.com', port=587)
+            s.ehlo()
+            s.starttls()
+            s.login('udaya.python23@gmail.com','doyoulikewhatyousee')
+            result = s.sendmail(sender, receivers, msgd.as_string())
+            self.logger.info("Successfully sent email")
+            s.quit()
+        except smtplib.SMTPException,error:
+            self.logger.warning(str(error))
+            self.logger.warning("Error: unable to send email")
 
     def read_from_xlsx(self):
         xl_workbook = xlrd.open_workbook("csv_devices.xlsx")
