@@ -55,6 +55,9 @@ class Device_d42:
                 self.params = config.get('config_values', 'params')
                 self.device_id = config.get('config_values', 'device_id')
                 self.auth = (self.username, self.password)
+                self.sender = config.get('config_emailid', 'sender')
+                self.receivers = config.get('config_emailid', 'receivers')
+                self.password = config.get('config_emailid', 'password')               
             except IOError,e:
                 self.logger.error(e, exc_info=True)           
 
@@ -98,39 +101,35 @@ class Device_d42:
         """
         For POST req to execute Building name,room name parameters are required
         """
-        buildingnames = self.get_names_list(url = url, api_key = "buildings/")
-        for building in buildingnames:
-            if building in room_params:
-                self.logger.info('Room info exists for device')
-            else:
-                pass
-        room_params = eval(room_params)
         try:
-            if room_params.has_key('building') != True:
-                self.logger.info('Building info not available for device')
-            if room_params.has_key('name') != True:
-                self.logger.info('Room info not available for device')
-            else:
+            room_params = eval(room_params)
+            building_values = {'name' : room_params['building']}
+            buildingnames = self.get_names_list(url = url, api_key = "buildings/")
+            building_name_match = next((name for name in buildingnames if name in room_params),None)
+            if not room_name_match:
+                self.post_building(url = url, room_params = building_values)
+                
+            if all(k in room_params for k in ('building','name')):
                 result = self.data_req(url = url, api_key = "rooms/", data = room_params, method = "POST")
                 self.logger.info(result)
+            else:
+                self.logger.info('Building or name info not available for device')
         except exceptions.RequestException as err:
             self.logger.error(err)
+
 
     def post_racks(self, url, rack_params):
         """
         For POST req to execute rack name, size (u size), room name parameters are required
         check if room doesnt exist re-direct to add room function
         """
-        roomnames = self.get_names_list(url = url, api_key = "rooms/")
-        for room in roomnames:
-            if room in rack_params:
-                self.logger.info('Room info exists for device')
-            else:
-                pass
-        rack_params = eval(rack_params)
-        try: 
-            if rack_params.has_key('name') != True:
-                self.logger.info('Rack name not provided')
+        try:
+            rack_params = eval(rack_params)
+            room_values = {'name' : rack_params['room'], 'building' : rack_params['building']}
+            roomnames = self.get_names_list(url = url, api_key = "rooms/")
+            room_name_match = next((room for room in roomnames if room in rack_params),None)
+            if not room_name_match:
+                self.post_room(url = url, room_params = room_values)
             if rack_params.has_key('size') != True:
                 rack_params["size"] = 42
                 result = self.data_req(url = url, api_key = "racks/", data = rack_params, method = "POST")
@@ -236,13 +235,11 @@ class Device_d42:
         """
         try:
             msg = self.build_message()
-            sender = 'udaya.python23@gmail.com'
-            receivers = ['udaya.ackula@gmail.com']
             s = smtplib.SMTP(host='smtp.gmail.com', port=587)
             s.ehlo()
             s.starttls()
-            s.login('udaya.python23@gmail.com','doyoulikewhatyousee')
-            result = s.sendmail(sender, receivers, msg)
+            s.login(self.sender, self.password)
+            result = s.sendmail(self.sender, self.receivers, msg)
             return result
             self.logger.info("Successfully sent email")
             s.quit()
