@@ -21,7 +21,7 @@ try:
 except IOError, err:
     print 'Could not parse:', err
 
-
+#read from config file if user wants to use cache or get data directly from api
 cache_flag = parser.get('cache_header','cache_flag')
 
 class Device_d42:
@@ -34,7 +34,6 @@ class Device_d42:
             else:
                 print "No cache needed"
  
-
     def log_file(self):
         """
         Create file handler which logs even debug messages
@@ -122,64 +121,59 @@ class Device_d42:
                 if_found = True
         return if_found
         """
-        
+
+    def post_building(self, url, building_params):
+     """
+     For POST req to execute Building name parameter is mandatory
+     """
+        building_params = eval(building_params)
+        building_name = building_params['name']
+        if self.read_cache = True:
+#             exists = self.(self,building_name)
+             exists = self.if_building_exists(self)
+            if exists == True:
+                self.logger.info('This Building already exists')
+            else:            
+                result = self.data_req(url=url, api_key="buildings/", data = building_params, method="POST")                
+                self.logger.info(result)
+                self.update_cache_after_post(fname="buildings.txt",data = building_params['name'])
+                return result
+        else:
+            buildingnames = self.get_names_list(url = url, api_key = "buildings/")
+            building_name_match = next((name for name in buildingnames if name in building_params),None)
+            if not room_name_match:
+                result = self.data_req(url=url, api_key="buildings/", data = building_params, method="POST")
+
+
     def read_file(self,fname):
+        """
+        Read the cache file created and return data of names
+        """
         with open(fname, 'r') as f:
             data = f.read().split(',')
             f.close()
         return data
 
-    def if_building_exists(self):
-        self.building_params = eval(self.building_params)
-        self.building_name = self.building_params['name']
-        data = self.read_file()
+    def if_name_exists(self,name,fname):
+        """
+        check from the data if name is already been created
+        """
+        data = self.read_file(fname)
         exists = False
         for i in data:
-            if self.building_name == i:
+            if name == i:
                 exists = True
         return exists
 
-    def if_room_exists(self):
-        self.room_params = eval(self.room_params)
-        self.room_name = self.room_params['name']
-        data = self.read_file()
-        exists = False
-        for i in data:
-            if self.room_name == i:
-                exists = True
-        return exists
+    def update_cache_after_post(self,fname,data):
+        """
+        Update cache after every post
+        """
+        with open(fname, 'a+') as f:
+            f.write(',{0}'.format(data))
+        return True
 
-    def if_rack_exists(self):
-        self.rack_params = eval(self.rack_params)
-        self.rack_name = self.rack_params['name']
-        data = self.read_file()
-        exists = False
-        for i in data:
-            if self.rack_name == i:
-                exists = True
-        return exists
-
-    def if_hwmodel_exists(self):
-        self.hw_params = eval(self.hw_params)
-        self.hw_name = self.hw_params['name']
-        data = self.read_file()
-        exists = False
-        for i in data:
-            if self.hw_name == i:
-                exists = True
-        return exists
-
-    def if_device_exists(self):
-        self.params = eval(self.params)
-        self.dname = self.params['name']
-        data = self.read_file()
-        exists = False
-        for i in data:
-            if self.dname == i:
-                exists = True
-        return exists
-    
-    def data_req(self, url, api_key, data, method):
+     def data_req(self, url, api_key, data, method):
         """
         GET, POST, PUT requests are implemented
         """
@@ -210,7 +204,7 @@ class Device_d42:
         building_params = eval(building_params)
         building_name = building_params['name']
         if self.read_cache = True:
-             exists = self.if_building_exists(self)
+             exists = self.if_name_exists(self,name = building_name,fname = "buildings.txt")
             if exists == True:
                 self.logger.info('This Building already exists')
             else:            
@@ -224,19 +218,14 @@ class Device_d42:
             if not room_name_match:
                 result = self.data_req(url=url, api_key="buildings/", data = building_params, method="POST")
 
-
-     def update_cache_after_post(self,fname,data):
-         with open(fname, 'a+') as f:
-            f.write(',{0}'.format(data))
-        return True
-
     def post_room(self, url, room_params):
         """
         For POST req to execute Building name,room name parameters are required
         """
         room_params = eval(room_params)
+        room_name = room_params['name']
         if self.read_cache = True:
-            exists = self.if_room_exists(self)
+             exists = self.if_name_exists(self,name = room_name,fname = "rooms.txt")
             if exists == True:
                 self.logger.info('This Room already exists')
             else:
@@ -263,8 +252,9 @@ class Device_d42:
         check if room doesnt exist re-direct to add room function
         """
         rack_params = eval(rack_params)
+        rack_name = rack_params['name']       
         if self.read_cache = True:
-            exists = self.if_rack_exists(self)
+             exists = self.if_name_exists(self,name = rack_name,fname = "racks.txt")
             if exists == True:
                 self.logger.info('This Rack already exists')
             else:
@@ -289,8 +279,9 @@ class Device_d42:
         For POST req to execute hardware model name parameter is required.
         """
         hw_params = eval(hw_params)
+        hw_name = hw_params['name']
         if self.read_cache = True:
-            exists = self.if_hwmodel_exists(self)
+             exists = self.if_name_exists(self,name = hw_name,fname = "hardwares.txt")
             if exists == True:
                 self.logger.info('This Hardware model already exists')
             else:
@@ -311,8 +302,9 @@ class Device_d42:
         Post Devices without giving any hardware model
         """
         params = eval(params)
+        dname = params['name']
         if self.read_cache = True:
-            exists = self.if_device_exists(self)
+             exists = self.if_name_exists(self,name = dname,fname = "devices.txt")
             if exists == True:
                 self.logger.info('This Device name already exists')
             else:
