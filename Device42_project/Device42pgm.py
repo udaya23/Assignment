@@ -121,9 +121,9 @@ class Device_d42:
             f.close()
         return data
 
-    def if_name_exists(self,name,fname):
+    def if_name_exists_in_cache(self,name,fname):
         """
-        check from the data if name is already been created
+        check from the cache data if it already exists in Device42 API
         """
         data = self.read_file(fname)
         exists = False
@@ -140,7 +140,7 @@ class Device_d42:
             f.write(',{0}'.format(data))
         return True
 
-     def data_req(self, url, api_key, data, method):
+    def data_req(self, url, api_key, data, method):
         """
         GET, POST, PUT requests are implemented
         """
@@ -164,20 +164,37 @@ class Device_d42:
         names = [i['name'] for i in result if 'name' in i]
         return names
 
-     def post_building(self, url, building_params):
-     """
-     For POST req to execute Building name parameter is mandatory
-     """
+
+    def check_mandatory_fields(self, data, field_list):
+        """
+        check for mandatory parameters in the data
+        """
+        data = eval(data)
+        if all(param in data for param in field_list):
+            self.logger.info("All parameters available...Proceeding to Post Data..")
+            field_check = True
+        else:
+            msg = "Mandatory parameters required to post data are missing"
+            self.logger.error(msg.upper())
+            self.send_message(msg, sender, receivers)
+            sys.exit(1)
+        return field_check
+    
+
+    def post_building(self, url, building_params):
+        """
+        For POST req to execute Building name parameter is mandatory
+        """
         building_params = eval(building_params)
         building_name = building_params['name']
-        if self.read_cache = True:
-             exists = self.if_name_exists(self,name = building_name,fname = "buildings.txt")
-            if exists == True:
+        if self.read_cache == True:
+             exists = self.if_name_exists_in_cache(self, name = building_name, fname = "buildings.txt")
+             if exists == True:
                 self.logger.info('This Building already exists')
-            else:            
+             else:            
                 result = self.data_req(url=url, api_key="buildings/", data = building_params, method="POST")                
                 self.logger.info(result)
-                self.update_cache_after_post(fname="buildings.txt",data = building_params['name'])
+                self.update_cache_after_post(fname="buildings.txt", data = building_params['name'])
                 return result
         else:
             buildingnames = self.get_names_list(url = url, api_key = "buildings/")
@@ -190,119 +207,189 @@ class Device_d42:
         For POST req to execute Building name,room name parameters are required
         """
         room_params = eval(room_params)
-        room_name = room_params['name']
-        if self.read_cache = True:
-             exists = self.if_name_exists(self,name = room_name,fname = "rooms.txt")
-            if exists == True:
-                self.logger.info('This Room already exists')
+        building_dict = {'name' : room_params['building']}
+        #check if all mandotory fields are present or not
+        field_check = self.check_mandatory_fields(data = room_params, field_list = ['building','name'])
+        if field_check == True:
+            # check if room name to be posted is already existing in the device42 api
+            #if read_cache = True read from cache otherwise from get request response
+            if self.read_cache == True:
+                exists = self.if_name_exists_in_cache(self, name = room_params['name'], fname = "rooms.txt")
+                if exists == True:
+                    self.logger.info('This Room already exists')
+                    sys.exit(1)
             else:
+                roomnames = self.get_names_list(url = url, api_key = "rooms/")
+                room_name_match = next((name for name in roomnames if name in room_params),None)
+                if room_name_match:
+                    self.logger.info('This Room already exists')
+                    sys.exit(1)            
+            #check if building already exists in Device42, If not create a building first
+            if self.read_cache == True:
+                 b_exists = self.if_name_exists_in_cache(self, name = room_params['building'], fname = "buildings.txt")
+                 if b_exists == False:
+                    self.logger.info('Building does not exist..Proceeding to creating building first....')
+                    result = self.post_building(url = url, building_params = building_dict)
+                    if result.status_code == 200:
+                        self.logger.info('Post Building Successfull..Proceeding to creating room....')
+                 else:                     
+                    self.logger.info('Building exists..Proceeding to post room....')
+                    result = self.data_req(url = url, api_key = "rooms/", data = room_params, method = "POST")
+                    self.logger.info(result)
+                #update in cache after succesful post of room
+                 if result.status_code == 200:
+                    self.update_cache_after_post(fname="rooms.txt",data = room_params['name'])
+                    self.logger.info("Succesfull updating of CACHE")
+                 else:
+                    self.logger.error("POST ROOM IS NOT SUCCESSFULL")
+                    
+            #if not using cache
+            else:
+                buildingnames = self.get_names_list(url = url, api_key = "buildings/")
+                building_name_match = next((name for name in buildingnames if name in room_params),None)
+                if not building_name_match:
+                    self.logger.info("Building is not available.Proceeding towards POST building first....")
+                    result = self.post_building(url = url, building_params = building_dict)
+                else:
+                    self.logger.info("Building exists.Proceed to POST room...")
+                    
                 result = self.data_req(url = url, api_key = "rooms/", data = room_params, method = "POST")
                 self.logger.info(result)
-                self.update_cache_after_post(fname="rooms.txt",data = room_params['name'])
-                return result
-        else:
-            building_values = {'name' : room_params['building']}
-            buildingnames = self.get_names_list(url = url, api_key = "buildings/")
-            building_name_match = next((name for name in buildingnames if name in room_params),None)
-            if not room_name_match:
-                self.post_building(url = url, room_params = building_values)
-                
-            if all(k in room_params for k in ('building','name')):
-                result = self.data_req(url = url, api_key = "rooms/", data = room_params, method = "POST")
-                self.logger.info(result)
-            else:
-                self.logger.info('Building or name info not available for device')
+        return True
 
+ 
     def post_racks(self, url, rack_params):
         """
         For POST req to execute rack name, size (u size), room name parameters are required
         check if room doesnt exist re-direct to add room function
-        """
+        """       
         rack_params = eval(rack_params)
-        rack_name = rack_params['name']       
-        if self.read_cache = True:
-             exists = self.if_name_exists(self,name = rack_name,fname = "racks.txt")
-            if exists == True:
-                self.logger.info('This Rack already exists')
+        room_dict = {'name' : room_params['room'], 'building' : room_params['building']}
+        #check if all mandotory fields are present or not
+        field_check = self.check_mandatory_fields(data = rack_params, field_list = ['size', 'room', 'name'])
+        if field_check == True:
+        # check if rack name to be posted is already existing in the device42 api
+        #if read_cache = True read from cache otherwise from get request response
+            if self.read_cache == True:
+                 exists = self.if_name_exists_in_cache(self, name = rack_params['name'], fname = "racks.txt")
+                 if exists == True:
+                    self.logger.info('This Rack already exists')
+                    sys.exit(1)
             else:
+                 roomnames = self.get_names_list(url = url, api_key = "rooms/")
+                 room_name_match = next((name for name in roomnames if name in room_params),None)
+                 if room_name_match:
+                    self.logger.info('This Room already exists')
+                    sys.exit(1)
+        #check if Room already exists in Device42, If not create a Room first
+            if self.read_cache == True:
+                room_exists = self.if_name_exists_in_cache(self, name = rack_params['room'], fname = "rooms.txt")
+                if room_exists == False:
+                    self.logger.info('Room does not exist..Proceeding to creating room first....')
+                    result = self.post_room(url = url, room_params = room_dict)
+                    if result.status_code == 200:
+                        self.logger.info('Post Room Successfull..Proceeding to creating rack....')
+                else:                     
+                    self.logger.info('Room exists..Proceeding to post Rack....')
+
                 result = self.data_req(url = url, api_key = "racks/", data = rack_params, method = "POST")
                 self.logger.info(result)
-                self.update_cache_after_post(fname="racks.txt",data = rack_params['name'])
-                return result
-        else:
-            room_values = {'name' : rack_params['room'], 'building' : rack_params['building']}
-            roomnames = self.get_names_list(url = url, api_key = "rooms/")
-            room_name_match = next((room for room in roomnames if room in rack_params),None)
-            if not room_name_match:
-                    self.post_room(url = url, room_params = room_values)
-                if rack_params.has_key('size') != True:
-                    rack_params["size"] = 42
-                    result = self.data_req(url = url, api_key = "racks/", data = rack_params, method = "POST")
-                    self.logger.info(result)
-                    return result
+                #update cache after succesful post of room
+                if result.status_code == 200:
+                    self.update_cache_after_post(fname="racks.txt", data = rack_params['name'])
+                    self.logger.info("Succesfull updating of CACHE")
+                else:
+                    self.logger.error("POST RACK IS NOT SUCCESSFULL")
+                    
+            #if not using cache
+            else:
+                roomnames = self.get_names_list(url = url, api_key = "rooms/")
+                room_name_match = next((name for name in roomnames if name in rack_params),None)
+                if not room_name_match:
+                    self.logger.info("Room is not available.Proceeding towards POST room first....")
+                    result = self.post_room(url = url, room_params = room_dict)
+                else:
+                    self.logger.info("Room exists.Proceed to POST rack...")
+                    
+                result = self.data_req(url = url, api_key = "racks/", data = rack_params, method = "POST")
+                self.logger.info(result)
+                #if rack_params.has_key('size') != True:
+                #rack_params["size"] = 42
+        return True
+        
                 
     def post_hwmodel(self, url, hw_params):
         """
         For POST req to execute hardware model name parameter is required.
         """
         hw_params = eval(hw_params)
-        hw_name = hw_params['name']
-        if self.read_cache = True:
-             exists = self.if_name_exists(self,name = hw_name,fname = "hardwares.txt")
-            if exists == True:
-                self.logger.info('This Hardware model already exists')
+        field_check = self.check_mandatory_fields(data = hw_params, field_list = ['name'])
+        if field_check == True:
+            #check if Hardware model name already exists in Device42
+            if self.read_cache == True:
+                 exists = self.if_name_exists_in_cache(self, name = hw_params['name'], fname = "hardwares.txt")
+                 if exists == True:
+                    self.logger.info('This Hardware model already exists')
+                 else:
+                    self.logger.info('HW model doesnot exist.Proceeding to creating a HWmodel...')
+                    result = self.data_req(url = url, api_key = "hardwares/", data = hw_params, method = "POST")
+                    self.logger.info(result)
+                    if result.status_code == 200:
+                        #update cache after succesful post of room
+                        self.update_cache_after_post(fname="hardwares.txt", data = hw_params['name'])
+                        self.logger.info("Succesfull updating of CACHE")
+            #if not using cache
             else:
-                result = self.data_req(url = url, api_key = "hardwares/", data = rack_params, method = "POST")
-                self.logger.info(result)
-                self.update_cache_after_post(fname="hardwares.txt",data = rack_params['name'])
-                return result
-        else:
-            if hw_params.has_key('name') != True:
-                self.logger.info('Hardware model name not available')
-            else:
-                result = self.data_req(url = url, api_key = "hardwares/", data = hw_params, method = "POST")
-                self.logger.info(result)
-                return result
+                 hwnames = self.get_names_list(url = url, api_key = "hardwares/")
+                 hw_name_match = next((name for name in hwnames if name in hw_params),None)
+                 if not hw_name_match:
+                    self.logger.info('HW model doesnot exist.Proceeding to creating a HWmodel...')
+                    result = self.data_req(url = url, api_key = "hardwares/", data = hw_params, method = "POST")
+                    self.logger.info(result)
+                 else:
+                    self.logger.info('This Hardware model already exists')
+        return True
 
     def post_device(self, url, params):
         """
         Post Devices without giving any hardware model
         """
         params = eval(params)
-        dname = params['name']
-        if self.read_cache = True:
-             exists = self.if_name_exists(self,name = dname,fname = "devices.txt")
-            if exists == True:
-                self.logger.info('This Device name already exists')
+        field_check = self.check_mandatory_fields(data = params, field_list = ['name'])
+        if field_check == True:
+            if self.read_cache == True:
+                 exists = self.if_name_exists_in_cache(self, name = params['name'], fname = "devices.txt")
+                 if exists == True:
+                    self.logger.info('This Device name already exists')
+                 else:
+                    result = self.data_req(url = url, api_key = "devices/", data = params, method = "POST")
+                    self.logger.info(result)
+                    if result.status_code == 200:
+                        self.update_cache_after_post(fname="devices.txt", data = params['name'])
+                        self.logger.info("Succesfull updating of CACHE")
             else:
-                result = self.data_req(url = url, api_key = "devices/", data = params, method = "POST")
-                self.logger.info(result)
-                self.update_cache_after_post(fname="devices.txt",data = params['name'])
-                return result
-        else:
-            result = self.data_req(url =  url,api_key = "devices/", data = params,  method = "POST")
-            self.logger.info("Device is posted to Device42",json.dumps(result))
+                 devicenames = self.get_names_list(url = url, api_key = "devices/")
+                 device_name_match = next((name for name in devicenames if name in params),None)
+                 if not device_name_match:
+                    self.logger.info('Device name doesnot exist.Proceeding to create...')
+                    result = self.data_req(url = url, api_key = "devices/", data = params, method = "POST")
+                    self.logger.info(result)
+                 else:
+                    self.logger.info('This Device name already exists')
+        return True
  
     def post_device_2_rack(self, url, device_to_rack):
         """
         Rack id or building/room/rack names and starting location (or auto) are required
         """
         device_to_rack = eval(device_to_rack)
-        try:
-            if device_to_rack.has_key('hw_model') != True:
-                self.logger.info('Hardware model not available')
-            else:
-                result = self.data_req(url=url, api_key="hardwares/", data = hw_params, method="POST")
-                self.logger.info(result)
-                return result
-
+        field_check = self.check_mandatory_fields(data = device_to_rack, field_list = ['hw_model', 'start_at'])
+        if field_check == True:
             if device_to_rack.has_key('start_at') != True:
                 device_to_rack['start_at'] = 'auto'           
                 result = self.data_req(url=url, api_key="device/rack/", data = device_to_rack, method="POST")
                 self.logger.info("Device is added to the rack",json.dumps(result))
-                return result
-        except exceptions.RequestException as err:
-            self.logger.error(err)
+        return True
  
     def update_device(self, url, update_params):
         """
@@ -341,22 +428,23 @@ class Device_d42:
                 lkeys = map(str.lower,keys)
                 keys_a = self.check_column_exists(lkeys)                   
         return True
-      
-    def build_message(self):
-        """
-        Build E-mail message and subject
-        """
-        msg = """File has empty headers
-        """
-        msgd = MIMEText(msg)
-        return msgd
- 
-    def send_message(self, sender, receivers):
+         
+#    def build_message(self):
+        
+#        Build E-mail message and subject
+        
+#        msg = File has empty headers
+#         msgd = MIMEText(msg)
+#         return msgd
+        
+        
+    def send_message(self, msg, sender, receivers):
         """
         Send E-mail to Developers incase of error
         """
         try:
-            msg = self.build_message()
+#            msg = self.build_message()
+            msg = MIMEText(msg)
             s = smtplib.SMTP(host='smtp.gmail.com', port=587)
             s.ehlo()
             s.starttls()
