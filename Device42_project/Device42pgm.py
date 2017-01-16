@@ -1,4 +1,3 @@
-import requests
 import certifi
 import json
 import xlrd
@@ -9,10 +8,20 @@ import logging
 import ast
 import os
 from time import strftime
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from ConfigParser import SafeConfigParser
 from ast import literal_eval
 import pickle
+
+logger = logging.getLogger('Debugging logs')
+logger.setLevel(logging.INFO)
+fh = logging.FileHandler(strftime("mylogfile_%m_%d_%Y.log"))
+logging.debug('This message should go to the log file')
+
+try:
+    import requests
+    from requests.packages.urllib3.exceptions import InsecureRequestWarning
+except ImportError:
+    logging.info("Import Error has Occured.Please Install Request module before proceeding")
 
 
 try:
@@ -102,48 +111,6 @@ class Device_d42:
             f.close()
         except IOError,e:
             self.logger.error(e, exc_info=True)
-
-    """
-    def cache_file(if_building_exists):
-        def read_file():
-            with open('buildings.txt', 'r') as f:
-                data = f.read().split(',')
-                f.close()
-            return read_file(data)
-        return read_file
-    
-
-    @cache_file
-    def if_building_exists(self,building_name):
-        if_found = False
-        for i in data:
-            if building_name == i:
-                if_found = True
-        return if_found
-        """
-
-    def post_building(self, url, building_params):
-     """
-     For POST req to execute Building name parameter is mandatory
-     """
-        building_params = eval(building_params)
-        building_name = building_params['name']
-        if self.read_cache = True:
-#             exists = self.(self,building_name)
-             exists = self.if_building_exists(self)
-            if exists == True:
-                self.logger.info('This Building already exists')
-            else:            
-                result = self.data_req(url=url, api_key="buildings/", data = building_params, method="POST")                
-                self.logger.info(result)
-                self.update_cache_after_post(fname="buildings.txt",data = building_params['name'])
-                return result
-        else:
-            buildingnames = self.get_names_list(url = url, api_key = "buildings/")
-            building_name_match = next((name for name in buildingnames if name in building_params),None)
-            if not room_name_match:
-                result = self.data_req(url=url, api_key="buildings/", data = building_params, method="POST")
-
 
     def read_file(self,fname):
         """
