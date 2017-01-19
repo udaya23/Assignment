@@ -3,9 +3,10 @@ import unittest
 import requests
 import smtplib
 import os
-from latest_cfglogg import *
+#from latest_cfglogg import *
 from testfixtures import LogCapture
-from test_module import Device_d42
+from Device42pgm import Device_d42
+#from test_module import Device_d42
 from mock import patch, call
 
 """
@@ -24,7 +25,7 @@ class ClientTestCase(unittest.TestCase):
 
 
     def test_check_column_exists(self):
-        test_keys = ['id','buildins']
+        test_keys = ['id','buildings']
         actual_result = self.client.check_column_exists(test_keys)
         self.assertEqual(actual_result,False)
                 

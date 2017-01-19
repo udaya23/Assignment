@@ -35,7 +35,8 @@ except ImportError:
     sys.exit(1)
 
 #Opening config parameters file to read
-filepath = sys.argv[1]
+#filepath = sys.argv[1]
+filepath = "../Device42_project/config_param.cfg"
 config = SafeConfigParser()
 if not os.path.isfile(filepath):
     logger.info("Cannot find the file.Please make sure config file is present and is readaable")
@@ -153,7 +154,6 @@ class Device_d42:
         names = [i['name'] for i in result if 'name' in i]
         return names
 
-
     def check_mandatory_fields(self, data, field_list):
         """
         check for mandatory parameters in the data
@@ -169,7 +169,6 @@ class Device_d42:
             sys.exit(1)
         return field_check
     
-
     def post_building(self, url, building_params):
         """
         For POST req to execute Building name parameter is mandatory
@@ -188,8 +187,14 @@ class Device_d42:
         else:
             buildingnames = self.get_names_list(url = url, api_key = "buildings/")
             building_name_match = next((name for name in buildingnames if name in building_params),None)
-            if not room_name_match:
+            if not building_name_match:
+                logger.info("Building is not available.Proceeding towards POST building....")
                 result = self.data_req(url=url, api_key="buildings/", data = building_params, method="POST")
+            else:
+                logger.info("Building exists.")
+        return True
+
+                
 
     def post_room(self, url, room_params):
         """
@@ -264,10 +269,10 @@ class Device_d42:
                     logger.info('This Rack already exists')
                     sys.exit(1)
             else:
-                 roomnames = self.get_names_list(url = url, api_key = "rooms/")
-                 room_name_match = next((name for name in roomnames if name in room_params),None)
-                 if room_name_match:
-                    logger.info('This Room already exists')
+                 racknames = self.get_names_list(url = url, api_key = "racks/")
+                 rack_name_match = next((name for name in racknames if name in rack_params),None)
+                 if rack_name_match:
+                    logger.info('This Rack already exists')
                     sys.exit(1)
         #check if Room already exists in Device42, If not create a Room first
             if self.read_cache == True:
@@ -279,9 +284,8 @@ class Device_d42:
                         logger.info('Post Room Successfull..Proceeding to creating rack....')
                 else:                     
                     self.logger.info('Room exists..Proceeding to post Rack....')
-
-                result = self.data_req(url = url, api_key = "racks/", data = rack_params, method = "POST")
-                logger.info(result)
+                    result = self.data_req(url = url, api_key = "racks/", data = rack_params, method = "POST")
+                    logger.info(result)
                 #update cache after succesful post of room
                 if result.status_code == 200:
                     self.update_cache_after_post(fname="racks.txt", data = rack_params['name'])
@@ -390,20 +394,20 @@ class Device_d42:
             logger.info('Device info has been updated',json.loads(resp.content))
         except requests.HTTPError:
             logger.warning('Device id not found')
-            
+
+    """           
     def check_column_exists(self,lkeys):
-        """
-        Check if column names are correct"
-        """
         columns_list = ['id','name','asset_no','type','network_device','in_service','building','rack','room','orientation','virtual_host','serial_no','hw_model','start_at','live_id','first_added','last_updated','storage_room','discovery_spec','device_host','customer','uuid','service_level','blade_chassis','blade_slot_no','device_host_chassis','fiber_switch','discovery_spec']
+        keys_a = []
         for i in range(0,len(lkeys)):
             if lkeys[i] in columns_list:
-                keys_a.append(lkeys[i])            
+                keys_a.append(lkeys[i])
+                return keys_a
             else:
                 return False
                 logger.info("columns names are wrong.Please provide correct column names")
-        return keys_a
-
+        return True
+        """
     def read_column_names(self,keys):
         """
         Read column headers and check if there is any empty headers
@@ -414,8 +418,9 @@ class Device_d42:
                 sys.exit(1)
             else:
                 lkeys = map(str.lower,keys)
-                keys_a = self.check_column_exists(lkeys)                   
-        return True
+                #keys_a = self.check_column_exists(lkeys)
+                return lkeys
+        #return True
          
         
     def send_message(self, msg, sender, receivers):
@@ -436,29 +441,30 @@ class Device_d42:
             logger.warning("Error: unable to send email")
             logger.warning(str(error))
 
-    def read_from_xlsx(self):
+    def read_from_xlsx(self,filename):
         """
         Read data from Excel sheet
         """
-        xl_workbook = xlrd.open_workbook("csv_devices.xlsx")
+       
+        xl_workbook = xlrd.open_workbook(filename)
         sheet = xl_workbook.sheet_by_index(0)
         keys = [str(sheet.cell(0, col_index).value) for col_index in xrange(sheet.ncols)]
         lkeys = self.read_column_names(keys)
         dict_list = []
-#        num_rows = sheet.nrows-1
+        #num_rows = sheet.nrows-1
         for row_index in xrange(1, sheet.nrows):
             d = {lkeys[col_index]: str(sheet.cell(row_index, col_index).value) 
                 for col_index in xrange(sheet.ncols)}
             dict_list.append(d)
         return dict_list
-    
-    def post_multipledata(self, url):
-        theurl = url + "device/"
+        
+    def post_multipledata(self, filename):
+        theurl = self.url + "device/"
         headers = {'Content-type': 'application/x-www-form-urlencoded',\
     			'Authorization' : 'Basic '+ base64.b64encode(self.username + ':' + self.password)}
         data_s = []
-        data_s = self.read_from_xlsx()
-        buildingnames = self.get_names_list(url, "buildings/")
+        data_s = self.read_from_xlsx(filename)
+        buildingnames = self.get_names_list(self.url, "buildings/")
         for i in range(0,len(data_s)):
             data = dict(data_s[i])
             # If building is not created already it will be created
@@ -466,10 +472,10 @@ class Device_d42:
                 keys = ['name']
                 values = [data["building"]]
                 buil_dict = str(dict(zip(keys,values)))
-                self.post_building(url = url, building_params = buil_dict)
+                self.post_building(url = self.url, building_params = buil_dict)
             resp = requests.post(theurl, verify = False, data = data, headers = headers)
             logger.info(resp)
-            
+                      
     def delete_req(self, method, theurl):
         """
         Delete Data Requests library
@@ -504,6 +510,7 @@ class Device_d42:
             logger.error(err)
 
 c = Device_d42()
+#c.read_from_xlsx()
 #c.read_all_info()
 #c.get_names_list(c.url)
 #c.check_if_exists(c.url,c.api_key)
