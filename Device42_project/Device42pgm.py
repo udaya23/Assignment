@@ -8,6 +8,8 @@ import logging
 import ast
 import os
 from time import strftime
+import smtplib
+from email.mime.text import MIMEText
 from ConfigParser import SafeConfigParser
 from ast import literal_eval
 import pickle
@@ -395,32 +397,34 @@ class Device_d42:
         except requests.HTTPError:
             logger.warning('Device id not found')
 
-    """           
-    def check_column_exists(self,lkeys):
-        columns_list = ['id','name','asset_no','type','network_device','in_service','building','rack','room','orientation','virtual_host','serial_no','hw_model','start_at','live_id','first_added','last_updated','storage_room','discovery_spec','device_host','customer','uuid','service_level','blade_chassis','blade_slot_no','device_host_chassis','fiber_switch','discovery_spec']
-        keys_a = []
-        for i in range(0,len(lkeys)):
-            if lkeys[i] in columns_list:
-                keys_a.append(lkeys[i])
-                return keys_a
-            else:
-                return False
-                logger.info("columns names are wrong.Please provide correct column names")
-        return True
+
+    def check_column_exists(self,keys):
         """
+        Check if columns have valid headers or not
+        """
+        columns_list = ['id','name','type','asset_no','building','rack','room','orientation','virtual_host','serial_no','hw_model','hardware','start_at','live_id','first_added','last_updated','storage_room','discovery_spec','device_host','customer','uuid','service_level','in_service','blade_chassis','fiber_switch','discovery_spec','asset_no']
+        all_columns_valid =  all((False for x in keys if x not in columns_list))
+        if all_columns_valid == False:
+            logger.info("columns names are wrong.Cannot proceed further.Please provide correct column names")
+            result = self.send_message("File has has invalid headers", self.sender, self.receivers)
+            sys.exit(1)
+        else:
+            return all_columns_valid
+
+
     def read_column_names(self,keys):
         """
         Read column headers and check if there is any empty headers
         """
-        for i in range(0,len(keys)): 
-            if '' in keys:
-                result = self.send_message()
-                sys.exit(1)
-            else:
-                lkeys = map(str.lower,keys)
-                #keys_a = self.check_column_exists(lkeys)
-                return lkeys
-        #return True
+        column_has_none = any(True for x in keys if (x == " " or x == 'None'))
+        if column_has_none == True:
+            result = self.send_message("File has has empty headers or None.",self.sender,self.receivers)
+            sys.exit(1)
+        else:
+            all_columns_valid = self.check_column_exists(keys)
+            if all_columns_valid == True:
+                logger.info("All checks passed.Proceeding towards POST DATA")
+        return True
          
         
     def send_message(self, msg, sender, receivers):
@@ -449,14 +453,16 @@ class Device_d42:
         xl_workbook = xlrd.open_workbook(filename)
         sheet = xl_workbook.sheet_by_index(0)
         keys = [str(sheet.cell(0, col_index).value) for col_index in xrange(sheet.ncols)]
-        lkeys = self.read_column_names(keys)
-        dict_list = []
-        #num_rows = sheet.nrows-1
-        for row_index in xrange(1, sheet.nrows):
-            d = {lkeys[col_index]: str(sheet.cell(row_index, col_index).value) 
-                for col_index in xrange(sheet.ncols)}
-            dict_list.append(d)
-        return dict_list
+        lkeys = map(str.lower,keys)
+        status_to_proceed = self.read_column_names(lkeys)
+        if status_to_proceed == True:
+            dict_list = []
+            #num_rows = sheet.nrows-1
+            for row_index in xrange(1, sheet.nrows):
+                d = {lkeys[col_index]: str(sheet.cell(row_index, col_index).value) 
+                    for col_index in xrange(sheet.ncols)}
+                dict_list.append(d)
+            return dict_list
         
     def post_multipledata(self, filename):
         theurl = self.url + "device/"
@@ -464,6 +470,7 @@ class Device_d42:
     			'Authorization' : 'Basic '+ base64.b64encode(self.username + ':' + self.password)}
         data_s = []
         data_s = self.read_from_xlsx(filename)
+        print "Yes"
         buildingnames = self.get_names_list(self.url, "buildings/")
         for i in range(0,len(data_s)):
             data = dict(data_s[i])
@@ -474,8 +481,12 @@ class Device_d42:
                 buil_dict = str(dict(zip(keys,values)))
                 self.post_building(url = self.url, building_params = buil_dict)
             resp = requests.post(theurl, verify = False, data = data, headers = headers)
-            logger.info(resp)
-                      
+            if resp.status_code != 200:
+                logger.info(resp)
+            else:
+                logger.info("POST DATA SUCCESS")
+                return True
+                       
     def delete_req(self, method, theurl):
         """
         Delete Data Requests library
