@@ -6,8 +6,6 @@ from watchdog.observers import Observer
 from watchdog.events import PatternMatchingEventHandler  
 from Device42pgm import Device_d42
 
-threads = []
-
 class MyHandler(PatternMatchingEventHandler):
     patterns = ["*.xlsx"]
 
@@ -17,10 +15,11 @@ class MyHandler(PatternMatchingEventHandler):
             'modified' | 'created' | 'moved' | 'deleted'
         """
         # the file will be processed there
-        #print event.src_path, event.event_type
+#        print event.src_path, event.event_type
+#        return event.src_path
         head, tail = os.path.split(event.src_path)
         return tail
-
+    
     def on_created(self, event):
         user_file = self.process(event)
         c = Device_d42()
@@ -48,6 +47,7 @@ class MyHandler(PatternMatchingEventHandler):
             os.makedirs(des)
         shutil.move(src, des)
         return True
+        
         
 if __name__ == '__main__':
 #    args = sys.argv[1:]
