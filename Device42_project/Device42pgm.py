@@ -5,14 +5,15 @@ import sys
 import base64
 import collections
 import logging
-import ast
 import os
+import ast
 from time import strftime
 import smtplib
-from email.mime.text import MIMEText
+from email.MIMEMultipart import MIMEMultipart
+from email.MIMEText import MIMEText
+#from email.mime.text import MIMEText
 from ConfigParser import SafeConfigParser
 from ast import literal_eval
-import pickle
 
 logger = logging.getLogger('Debugging logs')
 logger.setLevel(logging.INFO)
@@ -73,7 +74,10 @@ class Device_d42:
             self.receivers = config.get('config_emailid', 'receivers')
             self.password = config.get('config_emailid', 'password')
             #read from config file if user wants to use cache or get data directly from api
-            self.read_cache = config.get('cache_header','cache_flag')
+            #self.read_cache = config.get('cache_header','cache_flag')
+            self.read_cache = False
+            if self.read_cache:
+                self.create_cache()
         except IOError,e:
             logger.error(e, exc_info=True)
 
@@ -86,36 +90,63 @@ class Device_d42:
             for i in range(0,len(get_api)):
                 names = [ ]
                 fname = get_api[i]
-                f = open('{0}.txt'.format(fname), 'w+')
                 theurl =  self.url + fname
-                resp = requests.get(theurl, auth = self.auth, verify = False)
-                data =  json.loads(resp.text)
-                if fname == "devices":
-                    fname = fname.title()
-                elif fname == "hardwares":
-                    fname = "models"
+                if os.path.isfile(os.path.join('./',fname + '.txt')) == True:
+                    #check if cache is up-to-date
+                    data_from_api = self.get_list_of_entity_names(theurl = thrurl, fname = fname)
+                    data_in_cache = self.read_file(fname = fname)
+                    if set(data_from_api) == set(data_in_cache):
+                        logger.info("Cache is up-to-date")
+                    else:
+                        f = open('{i}.txt'.format(fname), 'w')
+                        f.write(','.join(data_from_api))
+                        f.close()
+                        logger.info("Re-write the cache as file is not being uodated")
                 else:
-                    fname = fname
-                for d in data[fname]:
-                    names.append(d['name'])
-                print f.write(','.join(names))
-                return f.write(','.join(names))
-            f.close()
+                    #get data from get request and parse it inot a list of entity names to write to cache
+                    data_from_api = self.get_list_of_entity_names(theurl = thrurl, fname = fname)
+                    #create a cache with all the data
+                    f = open('{i}.txt'.format(fname), 'w+')
+                    f.write(','.join(data_from_api))
+                    f.close()
         except IOError,e:
             logger.error(e, exc_info=True)
 
-    def read_file(self,fname):
+
+    def get_list_of_entity_names(self, theurl, fname):
+        """
+        request get data and parse it for usable data to write to cache
+        """
+        names = [ ]
+        resp = requests.get(theurl, auth = self.auth, verify = False)
+        data =  json.loads(resp.text)
+        if fname == "devices":
+            fname = fname.title()
+        elif fname == "hardwares":
+            fname = "models"
+        else:
+            fname = fname
+        for d in data[fname]:
+            names.append(d['name'])
+        return names
+        
+
+    def read_file(self, fname):
         """
         Read the cache file created and return data of names
         """
-        with open(fname, 'r') as f:
-            data = f.read().split(',')
-            f.close()
-        return data
-
+        fname = fname + '.txt'
+        try:
+            with open(fname, 'r') as f:
+                data = f.read().split(',')
+                f.close()
+            return data
+        except IOError:
+            logger.info("File read is not successfull.") 
+            
     def if_name_exists_in_cache(self,name,fname):
         """
-        check from the cache data if it already exists in Device42 API
+        check from the cache data if the entity that has to be created, already exists in Device42 API
         """
         data = self.read_file(fname)
         exists = False
@@ -128,9 +159,24 @@ class Device_d42:
         """
         Update cache after every post
         """
-        with open(fname, 'a+') as f:
-            f.write(',{0}'.format(data))
-        return True
+        try:
+            with open(fname, 'a+') as f:
+                f.write(',{0}'.format(data))
+            return True
+        except IOError:
+            logger.info("Update cache after post data failed.Please check if cache file exists") 
+
+    def get_names_list(self, url, api_key):
+        """
+        Getting the list of building/room/rack names from Device42 API
+        """
+        data = None
+        result = self.data_req(url, api_key, data, method="GET")
+        res = ast.literal_eval(result.text)
+        api_key = api_key[:-1]
+        result = res[api_key]
+        names = [i['name'] for i in result if 'name' in i]
+        return names
 
     def data_req(self, url, api_key, data, method):
         """
@@ -139,28 +185,15 @@ class Device_d42:
         theurl = url + api_key
         try:
             resp = requests.request(method, theurl, auth = self.auth, data = data, verify = False)
-            logger.info(resp)
-            return resp.text
+            return resp
         except requests.error as err:
             logger.error(err)
-
-    def get_names_list(self, url, api_key):
-        """
-        Getting the list of building/room/rack names from Device42 API
-        """
-        data = None
-        result = self.data_req(url, api_key, data, method="GET")
-        res = ast.literal_eval(result)
-        api_key = api_key[:-1]
-        result = res[api_key]
-        names = [i['name'] for i in result if 'name' in i]
-        return names
 
     def check_mandatory_fields(self, data, field_list):
         """
         check for mandatory parameters in the data
         """
-        data = eval(data)
+        #data = eval(data)
         if all(param in data for param in field_list):
             logger.info("All parameters available...Proceeding to Post Data..")
             field_check = True
@@ -186,7 +219,6 @@ class Device_d42:
             logging.info("Getting ID number request was not successfull")
         return id_num
 
-
     def delete_request(self, api_key, building_id):
         """
         Delete request for building
@@ -198,22 +230,23 @@ class Device_d42:
         except requests.exceptions.RequestException as err:
             logger.error(err)
         return True
-
-
            
     def post_building(self, url, building_params):
         """
         For POST req to execute Building name parameter is mandatory
         """
-        building_params = eval(building_params)
-        building_name = building_params['name']
+        if type(building_params) == str:
+            building_params = eval(building_params)
+            #building_name = building_params['name']
+        else:
+            pass
         if self.read_cache == True:
-             exists = self.if_name_exists_in_cache(self, name = building_name, fname = "buildings.txt")
+             exists = self.if_name_exists_in_cache(self, name = eval(building_params['name']), fname = "buildings.txt")
              if exists == True:
                 logger.info('This Building already exists')
              else:            
                 result = self.data_req(url=url, api_key="buildings/", data = building_params, method="POST")                
-                logger.info(result.text)
+                logger.info(result)
                 #update cache with new building name only if it is success
                 if result.status_code == 200:
                     self.update_cache_after_post(fname="buildings.txt", data = building_params['name'])
@@ -229,12 +262,14 @@ class Device_d42:
                 logger.info("Building exists.")
         return True
                
-
     def post_room(self, url, room_params):
         """
         For POST req to execute Building name,room name parameters are required
         """
-        room_params = eval(room_params)
+        if type(room_params) == str:
+            room_params = eval(room_params)
+        else:
+            pass
         building_dict = {'name' : room_params['building']}
         #check if all mandotory fields are present or not
         field_check = self.check_mandatory_fields(data = room_params, field_list = ['building','name'])
@@ -278,13 +313,13 @@ class Device_d42:
                 if not building_name_match:
                     logger.info("Building is not available.Proceeding towards POST building first....")
                     result = self.post_building(url = url, building_params = building_dict)
-                    logger.info("response when building is posted"+str(result.text))
+                    logger.info("Proceeding towards post room")
                 else:
                     logger.info("Building exists.Proceed to POST room...")
                     
                 result = self.data_req(url = url, api_key = "rooms/", data = room_params, method = "POST")
                 if result.status_code == 200:
-                    logger.info(result)
+                    logger.info("Room Posted successfully" +str(result))
                 else:
                     #Implement rollback if the request is not succesfull
                     logger.info("POST ROOM was not successfull.so implemeting rollback and deleting the data created before")
@@ -299,8 +334,11 @@ class Device_d42:
         For POST req to execute rack name, size (u size), room name parameters are required
         check if room doesnt exist re-direct to add room function
         """       
-        rack_params = eval(rack_params)
-        room_dict = {'name' : room_params['room'], 'building' : room_params['building']}
+        if type(rack_params) == str:
+            rack_params = eval(rack_params)
+        else:
+            pass
+        room_dict = {'name' : rack_params['room'], 'building' : rack_params['building']}
         #check if all mandotory fields are present or not
         field_check = self.check_mandatory_fields(data = rack_params, field_list = ['size', 'room', 'name'])
         if field_check == True:
@@ -365,7 +403,10 @@ class Device_d42:
         """
         For POST req to execute hardware model name parameter is required.
         """
-        hw_params = eval(hw_params)
+        if type(hw_params) == str:
+            hw_params = eval(hw_params)
+        else:
+            pass
         field_check = self.check_mandatory_fields(data = hw_params, field_list = ['name'])
         if field_check == True:
             #check if Hardware model name already exists in Device42
@@ -397,7 +438,10 @@ class Device_d42:
         """
         Post Devices without giving any hardware model
         """
-        params = eval(params)
+        if type(params) == str:
+            params = eval(params)
+        else:
+            pass
         field_check = self.check_mandatory_fields(data = params, field_list = ['name'])
         if field_check == True:
             if self.read_cache == True:
@@ -425,7 +469,10 @@ class Device_d42:
         """
         Rack id or building/room/rack names and starting location (or auto) are required
         """
-        device_to_rack = eval(device_to_rack)
+        if type(device_to_rack) == str:
+            device_to_rack = eval(device_to_rack)
+        else:
+            pass
         field_check = self.check_mandatory_fields(data = device_to_rack, field_list = ['hw_model'])
         if field_check == True:
             #check if hwmodel exists
@@ -464,11 +511,14 @@ class Device_d42:
         """
         Update an existing devices by name, serial, ID or asset number.
         """
-        update_params = eval(update_params)
+        if type(update_params) == str:
+            update_params = eval(update_params)
+        else:
+            pass
         try:
             resp = self.data_req(url = url, api_key = "devices/", data = update_params,  method = "PUT")
             logger.info(resp.raise_for_status())
-            logger.info('Device info has been updated',json.loads(resp.content))
+            logger.info('Device info has been updated'+str(resp))
         except requests.HTTPError:
             logger.warning('Device id not found')
 
@@ -507,11 +557,14 @@ class Device_d42:
         Send E-mail to Developers incase of any Error which will stop the flow of 
         """
         try:
-            msg = MIMEText(msg)
+            #msg = MIMEMultipart()
+            #msg.attach(MIMEText(msg, 'plain'))
             s = smtplib.SMTP(host='smtp.gmail.com', port=587)
             s.ehlo()
             s.starttls()
+            s.ehlo()
             s.login(self.sender, self.password)
+            #text = msg.as_string()
             result = s.sendmail(self.sender, self.receivers, msg)
             return result
             logger.info("Successfully sent email")
@@ -519,6 +572,7 @@ class Device_d42:
         except smtplib.SMTPException as error:
             logger.warning("Error: unable to send email")
             logger.warning(str(error))
+        
 
     def read_from_xlsx(self,filename):
         """
@@ -539,7 +593,7 @@ class Device_d42:
             return dict_list
         
     def post_multipledata(self):
-        filename = "csv_dev.xlsx"
+        #filename = "csv_dev.xlsx"
         theurl = self.url + "devices/"
         headers = {'Content-type': 'application/x-www-form-urlencoded',\
     			'Authorization' : 'Basic '+ base64.b64encode(self.username + ':' + self.password)}
@@ -565,6 +619,9 @@ class Device_d42:
 
 
 c = Device_d42()
+c.get_list_of_entity_names()
+#c.read_file()
+#c.send_message(c.sender, c.receivers)
 #c.get_idnumber()
 #c.read_from_xlsx()
 #c.read_all_info()
@@ -577,6 +634,7 @@ c = Device_d42()
 #c.update_device(c.url, c.auth, c.update_params)
 #c.post_building(c.url, c.building_params)
 #c.post_room(c.url, c.room_params)
+#c.post_racks(c.url,c.rack_params)
 #c.post_hwmodel(c.url, c.hw_params)
 #c.post_multipledata()
 #c.post_device_2_rack(c.url, c.device_to_rack)       
