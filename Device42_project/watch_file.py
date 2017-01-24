@@ -50,11 +50,11 @@ class MyHandler(PatternMatchingEventHandler):
         
         
 if __name__ == '__main__':
-#    args = sys.argv[1:]
-    args = "./User_files"
+    args = sys.argv[1:]
+    #args = "./User_files"
     observer = Observer()
-#    observer.schedule(MyHandler(), path=args[0] if args else '.')
-    observer.schedule(MyHandler(), path=args)
+    observer.schedule(MyHandler(), path=args[0] if args else '.')
+    #observer.schedule(MyHandler(), path=args)
 
     observer.start()
 
@@ -62,6 +62,5 @@ if __name__ == '__main__':
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-            observer.stop()
-        
+            observer.stop()        
     observer.join()

@@ -98,20 +98,27 @@ class Device_d42:
                     if set(data_from_api) == set(data_in_cache):
                         logger.info("Cache is up-to-date")
                     else:
-                        f = open('{i}.txt'.format(fname), 'w')
-                        f.write(','.join(data_from_api))
-                        f.close()
                         logger.info("Re-write the cache as file is not being uodated")
+                        self.write_to_file(fname = fname, data_from_api = data_from_api)
                 else:
                     #get data from get request and parse it inot a list of entity names to write to cache
                     data_from_api = self.get_list_of_entity_names(theurl = thrurl, fname = fname)
                     #create a cache with all the data
-                    f = open('{i}.txt'.format(fname), 'w+')
-                    f.write(','.join(data_from_api))
-                    f.close()
+                    self.write_to_file(fname = fname, data_from_api = data_from_api)                   
         except IOError,e:
             logger.error(e, exc_info=True)
 
+    def write_to_file(self, fname, data_from_api):
+        """
+        write to file from the api get request response
+        """
+        try:
+            f = open('{i}.txt'.format(fname), 'w')
+            f.write(','.join(data_from_api))
+            f.close()
+        except:
+            logger.info("File write is incomplete")
+        return True
 
     def get_list_of_entity_names(self, theurl, fname):
         """
@@ -162,6 +169,7 @@ class Device_d42:
         try:
             with open(fname, 'a+') as f:
                 f.write(',{0}'.format(data))
+                f.close()
             return True
         except IOError:
             logger.info("Update cache after post data failed.Please check if cache file exists") 
@@ -534,7 +542,8 @@ class Device_d42:
             result = self.send_message("File has has invalid headers", self.sender, self.receivers)
             sys.exit(1)
         else:
-            return all_columns_valid
+            #return all_columns_valid
+            return True
 
 
     def read_column_names(self,keys):
@@ -549,8 +558,12 @@ class Device_d42:
             all_columns_valid = self.check_column_exists(keys)
             if all_columns_valid == True:
                 logger.info("All checks passed.Proceeding towards POST DATA")
+        return keys
+
+    @check_column_exists
+    @read_column_names
+    def flag(self,keys):
         return True
-         
         
     def send_message(self, msg, sender, receivers):
         """
@@ -572,7 +585,7 @@ class Device_d42:
         except smtplib.SMTPException as error:
             logger.warning("Error: unable to send email")
             logger.warning(str(error))
-        
+          
 
     def read_from_xlsx(self,filename):
         """
@@ -582,8 +595,8 @@ class Device_d42:
         sheet = xl_workbook.sheet_by_index(0)
         keys = [str(sheet.cell(0, col_index).value) for col_index in xrange(sheet.ncols)]
         lkeys = map(str.lower,keys)
-        status_to_proceed = self.read_column_names(lkeys)
-        if status_to_proceed == True:
+        status_to_proceed = self.flag(lkeys)
+        if status_to_proceed:
             dict_list = []
             #num_rows = sheet.nrows-1
             for row_index in xrange(1, sheet.nrows):
