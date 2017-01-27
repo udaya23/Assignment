@@ -532,39 +532,33 @@ class Device_d42:
 
 
     def check_column_exists(self,keys):
-        """
-        Check if columns have valid headers or not
-        """
-        columns_list = ['id','name','type','asset_no','uuid','customer','blade_slot_no','device_host_chassis','network_device','building','rack','room','orientation','virtual_host','serial_no','hw_model','hardware','start_at','live_id','first_added','last_updated','storage_room','discovery_spec','device_host','customer','uuid','service_level','in_service','blade_chassis','fiber_switch','discovery_spec','asset_no']
-        all_columns_valid =  all((False for x in keys if x not in columns_list))
-        if all_columns_valid == False:
-            logger.info("columns names are wrong.Cannot proceed further.Please provide correct column names")
-            result = self.send_message("File has has invalid headers", self.sender, self.receivers)
-            sys.exit(1)
-        else:
-            #return all_columns_valid
-            return True
-
-
+         """
+         Check if columns have valid headers or not
+         """
+         columns_list = ['id','name','type','asset_no','uuid','customer','blade_slot_no','device_host_chassis','network_device','building','rack','room','orientation','virtual_host','serial_no','hw_model','hardware','start_at','live_id','first_added','last_updated','storage_room','discovery_spec','device_host','customer','uuid','service_level','in_service','blade_chassis','fiber_switch','discovery_spec','asset_no']
+         all_columns_valid =  all((False for x in keys if x not in columns_list))
+         if all_columns_valid == False:
+             logger.info("columns names are wrong.Cannot proceed further.Please provide correct column names")
+             result = self.send_message("File has has invalid headers", self.sender, self.receivers)
+             sys.exit(1)
+         else:
+             return all_columns_valid
+ 
+ 
     def read_column_names(self,keys):
-        """
-        Read column headers and check if there is any empty headers
-        """
-        column_has_none = any(True for x in keys if (x == " " or x == 'None'))
-        if column_has_none == True:
-            result = self.send_message("File has has empty headers or None.",self.sender,self.receivers)
-            sys.exit(1)
-        else:
-            all_columns_valid = self.check_column_exists(keys)
-            if all_columns_valid == True:
-                logger.info("All checks passed.Proceeding towards POST DATA")
-        return keys
-
-    @check_column_exists
-    @read_column_names
-    def flag(self,keys):
-        return True
-        
+         """
+         Read column headers and check if there is any empty headers
+         """
+         column_has_none = any(True for x in keys if (x == " " or x == 'None'))
+         if column_has_none == True:
+             result = self.send_message("File has has empty headers or None.",self.sender,self.receivers)
+             sys.exit(1)
+         else:
+             all_columns_valid = self.check_column_exists(keys)
+             if all_columns_valid == True:
+                 logger.info("All checks passed.Proceeding towards POST DATA")
+         return True
+          
     def send_message(self, msg, sender, receivers):
         """
         Send E-mail to Developers incase of any Error which will stop the flow of 
@@ -587,7 +581,7 @@ class Device_d42:
             logger.warning(str(error))
           
 
-    def read_from_xlsx(self,filename):
+    def read_from_xlsx(self, filename):
         """
         Read data from Excel sheet
         """       
@@ -595,7 +589,7 @@ class Device_d42:
         sheet = xl_workbook.sheet_by_index(0)
         keys = [str(sheet.cell(0, col_index).value) for col_index in xrange(sheet.ncols)]
         lkeys = map(str.lower,keys)
-        status_to_proceed = self.flag(lkeys)
+        status_to_proceed = self.read_column_names(lkeys)
         if status_to_proceed:
             dict_list = []
             #num_rows = sheet.nrows-1
@@ -604,17 +598,18 @@ class Device_d42:
                     for col_index in xrange(sheet.ncols)}
                 dict_list.append(d)
             return dict_list
-        
-    def post_multipledata(self):
+   
+    def post_multipledata(self, filename):
         #filename = "csv_dev.xlsx"
-        theurl = self.url + "devices/"
+        theurl = self.url + "device/"
         headers = {'Content-type': 'application/x-www-form-urlencoded',\
     			'Authorization' : 'Basic '+ base64.b64encode(self.username + ':' + self.password)}
         data_s = []
         data_s = self.read_from_xlsx(filename)
 #        buildingnames = self.get_names_list(self.url, "buildings/")
-        for d in data_s:
-            resp = requests.post(theurl, data = d, auth = self.auth ,headers = headers, verify = False)
+        for i in range(0,len(data_s)):
+            data = dict(data_s[i])
+            resp = requests.post(theurl, data = data, auth = self.auth ,headers = headers, verify = False)
             if resp.status_code != 200:
                 logger.info("error in post data"+str(resp.text))
             else:
@@ -632,7 +627,7 @@ class Device_d42:
 
 
 c = Device_d42()
-c.get_list_of_entity_names()
+#c.get_list_of_entity_names()
 #c.read_file()
 #c.send_message(c.sender, c.receivers)
 #c.get_idnumber()

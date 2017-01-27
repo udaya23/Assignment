@@ -30,10 +30,12 @@ class MyHandler(PatternMatchingEventHandler):
             status = c.post_multipledata(user_file)
             if status:
                 self.file_to_success(user_file)
+            else:
+                self.file_to_failure(user_file)
         return True            
 
     def file_to_success(self,user_file):
-        os.rename(user_file, time.strftime("%Y%m%d%H%M%S.txt"))
+        os.rename(user_file, time.strftime("%Y%m%d%H%M%S.xlsx"))
         src = os.path.join(args,user_file)
         des = "./Success_files"
         if not os.path.exists(des):
@@ -42,7 +44,7 @@ class MyHandler(PatternMatchingEventHandler):
         return True
 
     def file_to_failure(self,user_file):
-        os.rename(user_file, time.strftime("%Y%m%d%H%M%S.txt"))
+        os.rename(user_file, time.strftime("%Y%m%d%H%M%S.xlsx"))
         src = os.path.join(args,user_file)
         des = "./Failure_files"
         if not os.path.exists(des):
@@ -52,11 +54,11 @@ class MyHandler(PatternMatchingEventHandler):
         
         
 if __name__ == '__main__':
-    args = sys.argv[1:]
-    #args = "./User_files"
+    #args = sys.argv[1:]
+    args = "./User_files"
     observer = Observer()
-    observer.schedule(MyHandler(), path=args[0] if args else '.')
-    #observer.schedule(MyHandler(), path=args)
+    #observer.schedule(MyHandler(), path=args[0] if args else '.')
+    observer.schedule(MyHandler(), path=args)
 
     observer.start()
 
