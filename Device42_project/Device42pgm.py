@@ -34,7 +34,7 @@ try:
     import requests
     from requests.packages.urllib3.exceptions import InsecureRequestWarning
 except ImportError:
-    logging.info("Import Error has Occured.Please Install Request module before proceeding by pip install module_name. Further follow Instructions on how to install a package")
+    logger.info("Import Error has Occured.Please Install Request module before proceeding by pip install module_name. Further follow Instructions on how to install a package")
     sys.exit(1)
 
 #Opening config parameters file to read
@@ -44,7 +44,8 @@ config = SafeConfigParser()
 if not os.path.isfile(filepath):
     logger.info("Cannot find the file.Please make sure config file is present and is readaable")
     sys.exit(1)
-
+else:
+    pass
  
 class Device_d42:
 

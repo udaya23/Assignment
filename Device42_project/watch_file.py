@@ -1,13 +1,50 @@
 import time
 import sys
 import os
+import glob
 import shutil
+import logging
+from ConfigParser import SafeConfigParser
 from watchdog.observers import Observer  
 from watchdog.events import PatternMatchingEventHandler  
 from Device42pgm import Device_d42
 
+
+logger = logging.getLogger('Debugging logs')
+logger.setLevel(logging.INFO)
+fh = logging.FileHandler(strftime("log_for_watchfile_%m_%d_%Y.log"))
+logger = logging.getLogger('Debugging logs')
+logger.setLevel(logging.DEBUG)
+fh = logging.FileHandler(strftime("log_for_watchfile_%m_%d_%Y.log"))
+fh.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+fh.setFormatter(formatter)
+logger.addHandler(fh)
+
+
+
+#Opening config parameters file to read
+#filepath = sys.argv[1]
+filepath = "../Device42_project/read_path_destination.cfg"
+config = SafeConfigParser()
+if not os.path.exists(filepath):
+    logger.info("Cannot read destination file path")
+    sys.exit(1)
+else:
+    pass
+    
+
 class MyHandler(PatternMatchingEventHandler):
     patterns = ["*.xlsx"]
+
+    def read_config(self):
+        logger.info("starting to log in watchfile....")
+        try:
+            config.read(filepath)
+            self.success_filepath = config.get('path', 'success_file_path')
+            self.failure_filepath = config.get('path', 'failure_file_path')
+        except IOError,e:
+            logger.error(e, exc_info=True)
 
     def process(self, event):
         """
@@ -35,18 +72,30 @@ class MyHandler(PatternMatchingEventHandler):
         return True            
 
     def file_to_success(self,user_file):
-        os.rename(user_file, time.strftime("%Y%m%d%H%M%S.xlsx"))
+        try:
+            user_file_noEXT, EXT = os.path.splitext(user_file)
+            os.rename(user_file_noEXT, user_file_noEXT+'_'+time.strftime("%Y%m%d%H%M%S")+EXT)
+            logger.info("Succesfully rename the file")
+        except IOError:
+            logger.error("Error in renaming file.")
+            
         src = os.path.join(args,user_file)
-        des = "./Success_files"
+        des = self.success_filepath
         if not os.path.exists(des):
             os.makedirs(des)
         shutil.move(src, des)
         return True
 
     def file_to_failure(self,user_file):
-        os.rename(user_file, time.strftime("%Y%m%d%H%M%S.xlsx"))
+        try:
+            user_file_noEXT, EXT = os.path.splitext(user_file)
+            os.rename(user_file_noEXT, user_file_noEXT+'_'+time.strftime("%Y%m%d%H%M%S")+EXT)
+            logger.info("Succesfully rename the file")
+        except IOError:
+            logger.error("Error in renaming file.")
+            
         src = os.path.join(args,user_file)
-        des = "./Failure_files"
+        des = self.failure_filepath
         if not os.path.exists(des):
             os.makedirs(des)
         shutil.move(src, des)
