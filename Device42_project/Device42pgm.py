@@ -629,10 +629,10 @@ class Device_d42:
 
 c = Device_d42()
 #c.get_list_of_entity_names()
-#c.read_file()
+c.read_file('test_file.txt')
 #c.send_message(c.sender, c.receivers)
 #c.get_idnumber()
-#c.read_from_xlsx()
+#c.read_from_xlsx('testexcel.xlsx')
 #c.read_all_info()
 #c.get_names_list(c.url)
 #c.check_if_exists(c.url,c.api_key)

@@ -9,7 +9,9 @@ from testfixtures import LogCapture
 from Device42pgm import Device_d42
 #from test_module import Device_d42
 from mock import patch, call
-
+import shutil, tempfile
+from os import path
+from tempfile import NamedTemporaryFile
 """
 def resolve_file(filename):
     return os.path.join(os.path.dirname(__file__), filename)
@@ -24,6 +26,19 @@ class ClientTestCase(unittest.TestCase):
         self.client = Device_d42()
         self.room_params = {"building" : "New-Haven-DC","name": "DC room3","notes" : "Third room"}
 
+    def test_read_file(self):
+        # Change the file name to something
+        fname = 'test_file.txt'
+        fp = open(fname, 'w+')
+        # Write testdata to it
+        fp.write('The owls are not what they seem')
+        fp.close()
+        data = self.client.read_file('test_file')
+        self.assertEqual(data, ['The owls are not what they seem'])
+        # Remove the file
+        os.remove(fname)
+
+    
     def test_read_column_names(self):
         test_keys = [' ','None', 'id', 'rack_name']
         with self.assertRaises(SystemExit) as cm:
@@ -48,9 +63,6 @@ class ClientTestCase(unittest.TestCase):
           logger_test.info('This message is tested from test case for checking if log messages are written')
     
     def test_local_excel(self):
-        """
-        Test reading from a local Excel file.And chck further if all rows are read or not
-        """
         xl_workbook = xlrd.open_workbook("csv_devices.xlsx")
         self.assertTrue(xl_workbook)
         sheet = xl_workbook.sheet_by_index(0)
@@ -101,11 +113,11 @@ class ClientTestCase(unittest.TestCase):
     
     @mock.patch('Device42pgm.requests.get')
     def test_get_ok(self, mock_get):
-        """
-        Test getting a 200 OK response from the get method of MyAPIClient.
-        Construct our mock response object, giving it relevant expected
-        behaviours
-        """       
+    """
+        #Test getting a 200 OK response from the get method of MyAPIClient.
+        #Construct our mock response object, giving it relevant expected
+        #behaviours
+    """       
         mock_response = mock.Mock()
         expected_status = 200
         mock_response.return_value = expected_status
@@ -123,11 +135,11 @@ class ClientTestCase(unittest.TestCase):
 
     @mock.patch('Device42pgm.requests.post')
     def test_post_ok(self, mock_post):
-        """
-        Test getting a 200 OK response from the post method of MyAPIClient.
-        Construct our mock response object, giving it relevant expected
-        behaviours
-        """
+    
+        #Test getting a 200 OK response from the post method of MyAPIClient.
+        #Construct our mock response object, giving it relevant expected
+        #behaviours
+
         mock_response = mock.Mock()
         expected_status = 200
         mock_response.return_value = expected_status
@@ -142,7 +154,8 @@ class ClientTestCase(unittest.TestCase):
         response_actual = response.status_code
         # If we want, we can check the contents of the response
         self.assertEqual(response_actual, expected_status)
-    
+        
+
 if __name__ == "__main__":
     unittest.main()
 
